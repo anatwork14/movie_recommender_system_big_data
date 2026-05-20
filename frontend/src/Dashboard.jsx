@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchTrending } from './action'
+import AgentChat from './components/AgentChat'
 import Recommendation, { MovieRow } from './components/Recommendation'
 
 const placeholderTrending = [
@@ -47,7 +48,7 @@ const placeholderTrending = [
   },
 ]
 
-function Dashboard({ recommendations, onOpenMovie }) {
+function Dashboard({ recommendations, onOpenMovie, userId }) {
   const [trending, setTrending] = useState(placeholderTrending)
 
   useEffect(() => {
@@ -71,7 +72,18 @@ function Dashboard({ recommendations, onOpenMovie }) {
   return (
     <div className="page-stack">
       <section className="welcome-panel">
-        <h1> A real-time movie recommendation system</h1>
+        <p className="eyebrow">Hybrid AI · CF + TF-IDF + RAG</p>
+        <h1>Discover your next favourite film</h1>
+        <p className="hero-sub">
+          Powered by a 4-layer recommender: collaborative filtering on 20M ratings,
+          lexical TF-IDF search, semantic Qdrant vector search — fused by an AI Agent
+          with Reciprocal Rank Fusion.
+        </p>
+      </section>
+
+      {/* AI Agent Chat Panel */}
+      <section className="agent-panel">
+        <AgentChat userId={userId} onOpenMovie={onOpenMovie} />
       </section>
 
       <MovieRow
