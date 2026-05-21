@@ -70,7 +70,9 @@ function App() {
 
       try {
         localStorage.setItem('currentUserId', normalized)
-      } catch {}
+      } catch {
+        // localStorage may be unavailable in restricted browser contexts.
+      }
 
       setUserId(normalized)
       setRecommendations(recommendationCache[normalized] ?? [])

@@ -1,11 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 function Nav({ initialQuery = '', userId = '1337', onNavigate, onSearch, onUserChange }) {
   const [query, setQuery] = useState(initialQuery)
-
-  useEffect(() => {
-    setQuery(initialQuery)
-  }, [initialQuery])
 
   function handleSubmit(event) {
     event.preventDefault()

@@ -9,21 +9,23 @@ function MovieDetail({ movieId, recommendations, onOpenMovie, onRated }) {
     error: '',
   })
 
-  const [rating, setRating] = useState(0)
+  const [ratingState, setRatingState] = useState({ movieId: null, value: 0 })
   const [ratingStatus, setRatingStatus] = useState({ movieId: null, text: '' })
   // const [hoverRating, setHoverRating] = useState(0)
-  const [average, setAverage] = useState(null)
-  const [ratingCount, setRatingCount] = useState(null)
+  const [averageState, setAverageState] = useState({
+    movieId: null,
+    average: null,
+    count: null,
+  })
   const isCurrentMovie = movieState.movieId === movieId
   const movie = isCurrentMovie ? movieState.movie : null
+  const rating = ratingState.movieId === movieId ? ratingState.value : 0
+  const average = averageState.movieId === movieId ? averageState.average : null
+  const ratingCount = averageState.movieId === movieId ? averageState.count : null
   const status = getDetailStatus(movieId, movieState, isCurrentMovie, ratingStatus)
 
   useEffect(() => {
     let isMounted = true
-    setRating(0)
-    setRatingStatus({ movieId: null, text: '' })
-    setAverage(null)
-    setRatingCount(null)
 
     fetchMovie(movieId)
       .then((data) => {
@@ -49,8 +51,11 @@ function MovieDetail({ movieId, recommendations, onOpenMovie, onRated }) {
     fetchAverage(movieId)
       .then((data) => {
         if (isMounted) {
-          setAverage(data?.avg_rating == null ? null : Number(data.avg_rating))
-          if (data?.rating_count != null) setRatingCount(Number(data.rating_count))
+          setAverageState({
+            movieId,
+            average: data?.avg_rating == null ? null : Number(data.avg_rating),
+            count: data?.rating_count == null ? null : Number(data.rating_count),
+          })
         }
       })
       .catch(() => {
@@ -60,7 +65,10 @@ function MovieDetail({ movieId, recommendations, onOpenMovie, onRated }) {
     fetchUserRating(movieId)
       .then((data) => {
         if (isMounted) {
-          setRating(data?.user_rating == null ? 0 : Number(data.user_rating))
+          setRatingState({
+            movieId,
+            value: data?.user_rating == null ? 0 : Number(data.user_rating),
+          })
         }
       })
       .catch(() => {
@@ -77,6 +85,10 @@ function MovieDetail({ movieId, recommendations, onOpenMovie, onRated }) {
     if (!movie) {
       return
     }
+    if (rating <= 0) {
+      setRatingStatus({ movieId: movie.id, text: 'Choose a rating first.' })
+      return
+    }
 
     const ratingLabel = `${rating} star${rating === 1 ? '' : 's'}`
     const confirmed = window.confirm(`Send ${ratingLabel} for "${movie.title}"?`)
@@ -88,10 +100,13 @@ function MovieDetail({ movieId, recommendations, onOpenMovie, onRated }) {
     try {
       const data = await sendRateAction(movie.id, rating)
       setRatingStatus({ movieId: movie.id, text: `Rated as ${ratingLabel}.` })
-      setAverage(data?.avg_rating == null ? null : Number(data.avg_rating))
-      setRatingCount(data?.rating_count == null ? null : Number(data.rating_count))
+      setAverageState({
+        movieId: movie.id,
+        average: data?.avg_rating == null ? null : Number(data.avg_rating),
+        count: data?.rating_count == null ? null : Number(data.rating_count),
+      })
       if (data?.user_rating != null) {
-        setRating(Number(data.user_rating))
+        setRatingState({ movieId: movie.id, value: Number(data.user_rating) })
       }
       onRated?.()
     } catch {
@@ -173,7 +188,7 @@ function MovieDetail({ movieId, recommendations, onOpenMovie, onRated }) {
                     name="rating"
                     value={value}
                     checked={rating === value}
-                    onChange={() => setRating(value)}
+                    onChange={() => setRatingState({ movieId, value })}
                   />
                   <span>★</span>
                 </label>
