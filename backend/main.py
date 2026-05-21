@@ -551,7 +551,10 @@ async def user_rating(movie_id: int, user_id: str = Query("1337")):
 
 
 @app.get("/api/feed")
-async def feed(limit: int = Query(50, ge=1, le=200)):
+async def feed(
+    limit: int = Query(50, ge=1, le=200),
+    user_id: Optional[str] = Query(None),
+):
     """
     Return the recent live interaction events + a personalised recommendation
     list derived from the most recent click event.
@@ -560,6 +563,8 @@ async def feed(limit: int = Query(50, ge=1, le=200)):
     last_movie_id = None
     last_user_id = None
     for ev in events:
+        if user_id is not None and str(ev.get("user")) != str(user_id):
+            continue
         if ev.get("type") == "Click":
             last_movie_id = ev.get("movie")
             last_user_id = ev.get("user")

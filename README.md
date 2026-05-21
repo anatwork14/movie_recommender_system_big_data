@@ -39,6 +39,21 @@ The system follows a modern decoupled architecture for processing and recommendi
 - **`src/recsys/engines/cf_engine.py`**: Runtime recommendation engine. It loads ALS factors and ranks movies for a user with a dot product.
 - **`spark_jobs/ncf_training.py`**: Experimental Neural Collaborative Filtering trainer. It saves a PyTorch checkpoint, but the backend does not serve this model yet.
 
+### 4. Per-User Recommendations
+The React navbar lets you switch the current demo user ID. This user ID is passed to the backend on click, rating, feed, and agent recommendation requests.
+
+For a user that exists in `data/process_movie_rating.csv`, the ALS collaborative filtering model can return personalized candidates based on that user's historical rating pattern. For example, user `1500` and user `1337` can receive different CF recommendations because they have different learned user vectors.
+
+For a new or unknown user ID, collaborative filtering has no stored user vector, so the backend falls back to content-based recommendations from TF-IDF and Qdrant RAG. In the UI, a brand-new user may initially show no recommended films until they click or search for movies.
+
+When a movie is clicked, the backend recommends films using a hybrid of:
+- the current user's CF taste profile,
+- the clicked movie's title, genres, and description,
+- semantic similarity from Qdrant,
+- lexical similarity from TF-IDF.
+
+The frontend keeps a small in-memory recommendation cache per user during the current browser session. Switching back to a previous user restores their latest recommendations, but refreshing the browser clears this cache.
+
 ---
 
 ## 📥 Input & Output

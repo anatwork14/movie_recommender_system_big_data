@@ -10,17 +10,21 @@ import './style/dashboard.css'
 function App() {
   const [route, setRoute] = useState(() => readRoute())
   const [feed, setFeed] = useState([])
+  const [userId, setUserId] = useState(() => readCurrentUserId())
   const [recommendations, setRecommendations] = useState([])
+  const [recommendationCache, setRecommendationCache] = useState({})
 
   const refreshFeed = useCallback(async () => {
     try {
       const data = await fetchFeed()
       setFeed(data.feed ?? [])
-      setRecommendations(movieListFromResponse(data))
+      const movies = movieListFromResponse(data)
+      setRecommendations(movies)
+      setRecommendationCache((cache) => ({ ...cache, [userId]: movies }))
     } catch {
       setFeed([])
     }
-  }, [])
+  }, [userId])
 
   useEffect(() => {
     const initialRefreshId = window.setTimeout(refreshFeed, 0)
@@ -52,6 +56,29 @@ function App() {
     [navigate],
   )
 
+  const handleUserChange = useCallback(
+    (nextUserId) => {
+      const normalized = String(nextUserId).trim()
+      if (!normalized || normalized === userId) {
+        return
+      }
+
+      setRecommendationCache((cache) => ({
+        ...cache,
+        [userId]: recommendations,
+      }))
+
+      try {
+        localStorage.setItem('currentUserId', normalized)
+      } catch {}
+
+      setUserId(normalized)
+      setRecommendations(recommendationCache[normalized] ?? [])
+      navigate('/')
+    },
+    [navigate, recommendationCache, recommendations, userId],
+  )
+
   const handleOpenMovie = useCallback(
     (movie) => {
       if (!movie?.id) {
@@ -60,7 +87,9 @@ function App() {
 
       sendClickAction(movie.id)
         .then((data) => {
-          setRecommendations(movieListFromResponse(data))
+          const movies = movieListFromResponse(data)
+          setRecommendations(movies)
+          setRecommendationCache((cache) => ({ ...cache, [userId]: movies }))
           refreshFeed()
         })
         .catch(() => {
@@ -69,7 +98,7 @@ function App() {
 
       navigate(`/movie/${movie.id}`)
     },
-    [navigate, refreshFeed],
+    [navigate, refreshFeed, userId],
   )
 
   const page = useMemo(() => {
@@ -94,16 +123,18 @@ function App() {
       )
     }
 
-    return <Dashboard recommendations={recommendations} onOpenMovie={handleOpenMovie} />
-  }, [handleOpenMovie, recommendations, refreshFeed, route])
+    return <Dashboard recommendations={recommendations} onOpenMovie={handleOpenMovie} userId={userId} />
+  }, [handleOpenMovie, recommendations, refreshFeed, route, userId])
 
   return (
     <div className="app-shell">
       <Nav
         key={`${route.name}-${route.query ?? ''}`}
         initialQuery={route.query ?? ''}
+        userId={userId}
         onNavigate={navigate}
         onSearch={handleSearch}
+        onUserChange={handleUserChange}
       />
       <div className="app-layout">
         <main className="main-content">{page}</main>
@@ -111,6 +142,14 @@ function App() {
       </div>
     </div>
   )
+}
+
+function readCurrentUserId() {
+  try {
+    return localStorage.getItem('currentUserId') || '1337'
+  } catch {
+    return '1337'
+  }
 }
 
 function readRoute() {

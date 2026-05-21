@@ -1,22 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
-function Nav({ initialQuery = '', onNavigate, onSearch }) {
+function Nav({ initialQuery = '', userId = '1337', onNavigate, onSearch, onUserChange }) {
   const [query, setQuery] = useState(initialQuery)
 
-  // User ID
-  const [userId, setUserId] = useState(() => {
-    try {
-      return localStorage.getItem('currentUserId') || '1337'
-    } catch {
-      return '1337'
-    }
-  })
-
   useEffect(() => {
-    try {
-      localStorage.setItem('currentUserId', String(userId))
-    } catch {}
-  }, [userId])
+    setQuery(initialQuery)
+  }, [initialQuery])
 
   function handleSubmit(event) {
     event.preventDefault()
@@ -57,7 +46,7 @@ function Nav({ initialQuery = '', onNavigate, onSearch }) {
           onClick={() => {
             const val = window.prompt('Set current user id (for demo):', String(userId))
             if (val !== null && val.trim() !== '') {
-              setUserId(val.trim())
+              onUserChange?.(val.trim())
             }
           }}
         >

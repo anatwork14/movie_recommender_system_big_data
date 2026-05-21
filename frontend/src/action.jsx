@@ -53,7 +53,15 @@ async function fetchAverage(movieId) {
 }
 
 async function fetchFeed() {
-  return fetchJson('/api/feed')
+  const userId = (() => {
+    try {
+      return localStorage.getItem('currentUserId') || '1337'
+    } catch {
+      return '1337'
+    }
+  })()
+  const params = new URLSearchParams({ user_id: userId })
+  return fetchJson(`/api/feed?${params.toString()}`)
 }
 
 async function fetchTrending() {
