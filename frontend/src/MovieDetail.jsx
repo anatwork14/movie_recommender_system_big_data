@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchMovie, sendRateAction, fetchAverage, formatGenres } from './action'
+import { fetchMovie, sendRateAction, fetchAverage, fetchUserRating, formatGenres } from './action'
 import Recommendation from './components/Recommendation'
 
 function MovieDetail({ movieId, recommendations, onOpenMovie, onRated }) {
@@ -20,6 +20,11 @@ function MovieDetail({ movieId, recommendations, onOpenMovie, onRated }) {
 
   useEffect(() => {
     let isMounted = true
+    setRating(0)
+    setRatingStatus({ movieId: null, text: '' })
+    setAverage(null)
+    setRatingCount(null)
+
     fetchMovie(movieId)
       .then((data) => {
         if (isMounted) {
@@ -44,12 +49,22 @@ function MovieDetail({ movieId, recommendations, onOpenMovie, onRated }) {
     fetchAverage(movieId)
       .then((data) => {
         if (isMounted) {
-          if (data?.avg_rating != null) setAverage(Number(data.avg_rating))
+          setAverage(data?.avg_rating == null ? null : Number(data.avg_rating))
           if (data?.rating_count != null) setRatingCount(Number(data.rating_count))
         }
       })
       .catch(() => {
         // ignore - backend may not provide average/count
+      })
+
+    fetchUserRating(movieId)
+      .then((data) => {
+        if (isMounted) {
+          setRating(data?.user_rating == null ? 0 : Number(data.user_rating))
+        }
+      })
+      .catch(() => {
+        // ignore - user may not have rated this movie
       })
 
     return () => {
@@ -71,27 +86,18 @@ function MovieDetail({ movieId, recommendations, onOpenMovie, onRated }) {
 
     setRatingStatus({ movieId: movie.id, text: 'Sending rating...' })
     try {
-      await sendRateAction(movie.id, rating)
+      const data = await sendRateAction(movie.id, rating)
       setRatingStatus({ movieId: movie.id, text: `Rated as ${ratingLabel}.` })
-      // Optimistically update average and count
-      setRatingCount((prev) => {
-        const prevCount = Number(prev || movie.rating_count || 0)
-        const newCount = prevCount + 1
-        // compute new average if we have previous average
-        setAverage((prevAvg) => {
-          const previousAverage = Number(prevAvg ?? movie.average_rating ?? 0)
-          if (prevAvg == null && movie.average_rating == null) {
-            return rating
-          }
-          return (previousAverage * prevCount + rating) / newCount
-        })
-        return newCount
-      })
+      setAverage(data?.avg_rating == null ? null : Number(data.avg_rating))
+      setRatingCount(data?.rating_count == null ? null : Number(data.rating_count))
+      if (data?.user_rating != null) {
+        setRating(Number(data.user_rating))
+      }
       onRated?.()
     } catch {
       setRatingStatus({
         movieId: movie.id,
-        text: 'Could not send rating. Check the Flask API and Kafka services.',
+        text: 'Could not send rating. Check the FastAPI backend.',
       })
     }
   }
@@ -128,17 +134,16 @@ function MovieDetail({ movieId, recommendations, onOpenMovie, onRated }) {
             </p>
             <p className="description">{movie.description || 'No description available.'}</p>
 
-            {/* TODO: Average Rating Display */}
             <fieldset>
               <p className='fw-bold'>Average Rating</p>
-              {average == null && ratingCount == null ? (
+              {average == null ? (
                 <div className="avg-count">No ratings yet</div>
               ) 
               : (
                 <div className="average-line">
                     <div className="avg-number">
                       {average.toFixed(1)}
-                      <span class="secondary"> / 5</span>
+                      <span className="secondary"> / 5</span>
                     </div>
                     <span className="avg-count">{ratingCount !== null ? `(From ${ratingCount} users)` : ''}</span>
                 </div>

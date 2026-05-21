@@ -28,6 +28,17 @@ async function sendRateAction(movieId, rating) {
   return fetchJson(`/api/rate/${movieId}/${Number(rating).toFixed(1)}?user_id=${encodeURIComponent(userId)}`)
 }
 
+async function fetchUserRating(movieId) {
+  const userId = (() => {
+    try {
+      return localStorage.getItem('currentUserId') || '1337'
+    } catch {
+      return '1337'
+    }
+  })()
+  return fetchJson(`/api/user_rating/${movieId}?user_id=${encodeURIComponent(userId)}`)
+}
+
 async function searchMovies(query, limit = 50) {
   const params = new URLSearchParams({ q: query, limit: String(limit) })
   return fetchJson(`/api/search?${params.toString()}`)
@@ -65,5 +76,6 @@ export {
   searchMovies,
   sendClickAction,
   sendRateAction,
+  fetchUserRating,
   fetchAverage
 }

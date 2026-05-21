@@ -41,6 +41,10 @@ from ..engines.hybrid_fusion import CandidateMovie, HybridFusionEngine
 logger = logging.getLogger(__name__)
 
 
+async def _empty_results():
+    return []
+
+
 # ── Optional LLM integration (graceful fallback if no key) ────────────────────
 try:
     from openai import AsyncOpenAI
@@ -164,15 +168,15 @@ class RecommendationAgent:
         # ── Launch tools in parallel ─────────────────────────────────────────
         cf_task = asyncio.ensure_future(
             self._tool_cf(user_id, candidate_pool)
-        ) if intent["use_cf"] else asyncio.ensure_future(asyncio.coroutine(lambda: [])())
+        ) if intent["use_cf"] else asyncio.ensure_future(_empty_results())
 
         tfidf_task = asyncio.ensure_future(
             self._tool_tfidf(query, candidate_pool)
-        ) if intent["use_tfidf"] else asyncio.ensure_future(asyncio.coroutine(lambda: [])())
+        ) if intent["use_tfidf"] else asyncio.ensure_future(_empty_results())
 
         rag_task = asyncio.ensure_future(
             self._tool_rag(query, candidate_pool)
-        ) if intent["use_rag"] else asyncio.ensure_future(asyncio.coroutine(lambda: [])())
+        ) if intent["use_rag"] else asyncio.ensure_future(_empty_results())
 
         cf_results, tfidf_results, rag_results = await asyncio.gather(
             cf_task, tfidf_task, rag_task

@@ -29,7 +29,7 @@ from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -75,7 +75,87 @@ agent: Optional[RecommendationAgent] = None
 
 # In-memory interaction store (replaces Redis for zero-dependency demo)
 _interaction_feed: deque = deque(maxlen=200)
-_rating_store: Dict[int, List[float]] = defaultdict(list)
+_rating_sum_store: Dict[int, float] = defaultdict(float)
+_rating_count_store: Dict[int, int] = defaultdict(int)
+_user_rating_store: Dict[Tuple[int, int], float] = {}
+_historical_users_loaded: Set[int] = set()
+
+
+def _load_rating_aggregates(csv_path: str) -> None:
+    """Load original MovieLens rating aggregates so detail pages show real averages."""
+    import pandas as pd
+
+    cache_path = ROOT / "models" / "rating_aggregates.csv"
+    _rating_sum_store.clear()
+    _rating_count_store.clear()
+
+    csv_mtime = Path(csv_path).stat().st_mtime
+    if cache_path.exists() and cache_path.stat().st_mtime >= csv_mtime:
+        logger.info("[Startup] Loading cached rating aggregates from %s …", cache_path)
+        df = pd.read_csv(cache_path)
+        for row in df.itertuples(index=False):
+            movie_id = int(row.movieId)
+            _rating_sum_store[movie_id] = float(row.rating_sum)
+            _rating_count_store[movie_id] = int(row.rating_count)
+        logger.info("[Startup] Cached rating aggregates loaded for %d movies.", len(_rating_count_store))
+        return
+
+    logger.info("[Startup] Building rating aggregate cache from %s …", csv_path)
+    for chunk in pd.read_csv(csv_path, usecols=["movieId", "rating"], chunksize=1_000_000):
+        grouped = chunk.groupby("movieId")["rating"].agg(["sum", "count"])
+        for movie_id, row in grouped.iterrows():
+            mid = int(movie_id)
+            _rating_sum_store[mid] += float(row["sum"])
+            _rating_count_store[mid] += int(row["count"])
+
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    aggregate_df = pd.DataFrame({
+        "movieId": list(_rating_count_store.keys()),
+        "rating_sum": [_rating_sum_store[mid] for mid in _rating_count_store.keys()],
+        "rating_count": [_rating_count_store[mid] for mid in _rating_count_store.keys()],
+    })
+    tmp_path = cache_path.with_suffix(".tmp")
+    aggregate_df.to_csv(tmp_path, index=False)
+    tmp_path.replace(cache_path)
+    logger.info("[Startup] Rating aggregates loaded for %d movies.", len(_rating_count_store))
+
+
+def _load_historical_user_ratings(user_id: int) -> None:
+    """Load one user's original CSV ratings into memory, assuming ratings are grouped by userId."""
+    import pandas as pd
+
+    if user_id in _historical_users_loaded:
+        return
+
+    ratings_csv = ROOT / "data" / "process_movie_rating.csv"
+    if not ratings_csv.exists():
+        _historical_users_loaded.add(user_id)
+        return
+
+    for chunk in pd.read_csv(
+        ratings_csv,
+        usecols=["userId", "movieId", "rating"],
+        chunksize=1_000_000,
+    ):
+        if chunk["userId"].max() < user_id:
+            continue
+        if chunk["userId"].min() > user_id:
+            break
+        matches = chunk[chunk["userId"] == user_id]
+        for row in matches.itertuples(index=False):
+            _user_rating_store[(int(row.userId), int(row.movieId))] = float(row.rating)
+
+    _historical_users_loaded.add(user_id)
+
+
+def _record_rating(user_id: int, movie_id: int, rating: float, previous_rating: Optional[float]) -> None:
+    """Update in-memory aggregate state, treating re-rates as updates."""
+    if previous_rating is None:
+        _rating_sum_store[movie_id] += rating
+        _rating_count_store[movie_id] += 1
+    else:
+        _rating_sum_store[movie_id] += rating - previous_rating
+    _user_rating_store[(user_id, movie_id)] = rating
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Lifespan – startup & shutdown
@@ -96,10 +176,20 @@ async def lifespan(app: FastAPI):
     logger.info("[Startup] Building TF-IDF index from %s …", movie_csv)
     await loop.run_in_executor(None, tfidf_engine.build, str(movie_csv))
 
-    # 2. Load CF embeddings (if ALS pickle exists)
+    # 2. Load CF embeddings. Prefer the full Spark ALS model when it exists.
+    als_user_factors = ROOT / "models" / "als" / "user_factors.parquet"
+    als_item_factors = ROOT / "models" / "als" / "item_factors.parquet"
     cf_pickle = ROOT / "models" / "als_factors.pkl"
     ratings_csv = data_dir / "process_movie_rating.csv"
-    if cf_pickle.exists():
+    if als_user_factors.exists() and als_item_factors.exists():
+        logger.info("[Startup] Loading full Spark ALS factors from %s …", als_user_factors.parent)
+        await loop.run_in_executor(
+            None,
+            cf_engine.load_from_parquet,
+            str(als_user_factors),
+            str(als_item_factors),
+        )
+    elif cf_pickle.exists():
         logger.info("[Startup] Loading pre-trained ALS factors from %s …", cf_pickle)
         await loop.run_in_executor(None, cf_engine.load_from_pickle, str(cf_pickle))
     elif ratings_csv.exists():
@@ -128,7 +218,11 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("[Startup] No ratings CSV found – CF engine disabled.")
 
-    # 3. Probe Qdrant
+    # 3. Load movie-level rating averages from the original ratings data.
+    if ratings_csv.exists():
+        await loop.run_in_executor(None, _load_rating_aggregates, str(ratings_csv))
+
+    # 4. Probe Qdrant
     try:
         colls = vector_db.client.get_collections()
         names = [c.name for c in colls.collections]
@@ -142,7 +236,7 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("[Startup] Qdrant unavailable (%s). RAG disabled.", exc)
 
-    # 4. Build Agent
+    # 5. Build Agent
     openai_key = os.getenv("OPENAI_API_KEY", "")
     agent = RecommendationAgent(
         cf_engine=cf_engine,
@@ -341,7 +435,7 @@ async def click(
                 bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
             )
             await loop.run_in_executor(
-                None, lambda: (producer.track_click(user_id, movie_id), producer.flush())
+                None, lambda: (producer.track_click(user_id, movie_id), producer.flush(2))
             )
         except Exception as exc:
             logger.debug("[Click] Kafka send failed (non-fatal): %s", exc)
@@ -374,7 +468,18 @@ async def rate(
     if not (0.5 <= rating <= 5.0):
         raise HTTPException(400, "Rating must be between 0.5 and 5.0")
 
-    _rating_store[movie_id].append(rating)
+    try:
+        uid = int(user_id)
+    except ValueError:
+        raise HTTPException(400, "user_id must be an integer")
+
+    previous_rating = _user_rating_store.get((uid, movie_id))
+    if previous_rating is None:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _load_historical_user_ratings, uid)
+        previous_rating = _user_rating_store.get((uid, movie_id))
+    _record_rating(uid, movie_id, rating, previous_rating)
+
     ts = datetime.utcnow().isoformat()
     meta = tfidf_engine.get_by_id(movie_id)
     movie_title = meta.title if meta else str(movie_id)
@@ -398,25 +503,51 @@ async def rate(
                 None,
                 lambda: (
                     producer.track_rating(user_id, movie_id, rating),
-                    producer.flush(),
+                    producer.flush(2),
                 ),
             )
         except Exception as exc:
             logger.debug("[Rate] Kafka send failed (non-fatal): %s", exc)
 
-    return {"status": "ok", "movie_id": movie_id, "rating": rating, "user_id": user_id}
+    count = _rating_count_store.get(movie_id, 0)
+    avg = round(_rating_sum_store[movie_id] / count, 2) if count else None
+    return {
+        "status": "ok",
+        "movie_id": movie_id,
+        "rating": rating,
+        "user_id": user_id,
+        "avg_rating": avg,
+        "rating_count": count,
+        "user_rating": rating,
+    }
 
 
 @app.get("/api/average_rating/{movie_id}")
 async def average_rating(movie_id: int):
-    """Return average rating and count for a movie from the in-memory store."""
-    ratings = _rating_store.get(movie_id, [])
-    if not ratings:
+    """Return average rating and count for a movie from original + new ratings."""
+    count = _rating_count_store.get(movie_id, 0)
+    if not count:
         return {"avg_rating": None, "rating_count": 0}
     return {
-        "avg_rating": round(sum(ratings) / len(ratings), 2),
-        "rating_count": len(ratings),
+        "avg_rating": round(_rating_sum_store[movie_id] / count, 2),
+        "rating_count": count,
     }
+
+
+@app.get("/api/user_rating/{movie_id}")
+async def user_rating(movie_id: int, user_id: str = Query("1337")):
+    """Return the current user's rating for this movie, if known."""
+    try:
+        uid = int(user_id)
+    except ValueError:
+        raise HTTPException(400, "user_id must be an integer")
+
+    rating = _user_rating_store.get((uid, movie_id))
+    if rating is None:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _load_historical_user_ratings, uid)
+        rating = _user_rating_store.get((uid, movie_id))
+    return {"movie_id": movie_id, "user_id": uid, "user_rating": rating}
 
 
 @app.get("/api/feed")

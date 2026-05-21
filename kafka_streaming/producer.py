@@ -63,9 +63,9 @@ class InteractionProducer:
         except Exception as e:
             print(f"[-] Error producing to Kafka: {e}")
 
-    def flush(self):
+    def flush(self, timeout=None):
         """Wait for all outstanding messages to be delivered."""
-        self.producer.flush()
+        self.producer.flush(timeout)
 
 if __name__ == "__main__":
     # Quick Test Simulation
