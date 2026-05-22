@@ -22,6 +22,6 @@ COPY kafka_streaming/ ./kafka_streaming/
 ENV PYTHONPATH=/app
 ENV JAVA_HOME=/usr/lib/jvm/default-java
 
-EXPOSE 5000
+EXPOSE 5001
 
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "5000", "--workers", "1"]
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "5001", "--workers", "1"]

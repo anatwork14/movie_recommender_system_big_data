@@ -7,8 +7,8 @@ RUN npm ci
 
 COPY . .
 
-ENV VITE_API_BASE_URL=http://recsys-backend:5000
+ENV VITE_API_BASE_URL=http://recsys-backend:5001
 
-EXPOSE 3000
+EXPOSE 3005
 
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3005"]

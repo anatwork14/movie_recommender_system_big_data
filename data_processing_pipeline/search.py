@@ -1,8 +1,12 @@
 from qdrant_client import QdrantClient
 from sentence_transformers import SentenceTransformer
 
+import os
+
 # 1. Connect to your local Qdrant
-qdrant = QdrantClient(host="localhost", port=6333)
+qdrant_host = os.getenv("QDRANT_HOST", "localhost")
+qdrant_port = int(os.getenv("QDRANT_PORT", "6333"))
+qdrant = QdrantClient(host=qdrant_host, port=qdrant_port)
 
 # 2. Load the same lightweight model to encode your search query
 print("Loading model...")

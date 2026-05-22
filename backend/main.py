@@ -43,7 +43,7 @@ sys.path.insert(0, str(SRC))
 
 from recsys.engines.tfidf_engine import TFIDFEngine
 from recsys.engines.cf_engine import CollaborativeFilteringEngine
-from recsys.engines.hybrid_fusion import HybridFusionEngine
+from recsys.engines.hybrid_fusion import HybridFusionEngine, CandidateMovie
 from recsys.search.vector_db import MovieVectorDB
 from recsys.agent.orchestrator import RecommendationAgent
 
@@ -238,14 +238,18 @@ async def lifespan(app: FastAPI):
 
     # 5. Build Agent
     openai_key = os.getenv("OPENAI_API_KEY", "")
+    openai_base_url = os.getenv("OPENAI_BASE_URL", "")
+    llm_model = os.getenv("LLM_MODEL", "gpt-4o-mini")
     agent = RecommendationAgent(
         cf_engine=cf_engine,
         tfidf_engine=tfidf_engine,
         vector_db=vector_db,
         fusion_engine=fusion_engine,
         openai_key=openai_key or None,
+        openai_base_url=openai_base_url or None,
+        llm_model=llm_model,
     )
-    logger.info("[Startup] RecommendationAgent ready.  LLM=%s", bool(openai_key))
+    logger.info("[Startup] RecommendationAgent ready.  LLM=%s, Model=%s", bool(openai_key), llm_model)
     logger.info("═" * 60)
 
     yield  # ← server runs here
@@ -411,7 +415,8 @@ async def click(
 ):
     """
     Record a click interaction → Kafka → Realtime feed.
-    Also triggers a CF-based recommendation refresh for this user.
+    Returns immediately — recommendation refresh runs in the background
+    so the frontend never hangs waiting for the ML pipeline.
     """
     _require_agent()
     ts = datetime.utcnow().isoformat()
@@ -427,7 +432,7 @@ async def click(
     }
     _interaction_feed.appendleft(event)
 
-    # Produce to Kafka (fire-and-forget)
+    # Produce to Kafka (fire-and-forget, non-blocking)
     if _KAFKA_OK:
         try:
             loop = asyncio.get_event_loop()
@@ -440,21 +445,36 @@ async def click(
         except Exception as exc:
             logger.debug("[Click] Kafka send failed (non-fatal): %s", exc)
 
-    # Personalised recommendations for this user
+    # Run personalised recommendation refresh in the background —
+    # do NOT await it so this endpoint returns instantly.
     try:
         uid = int(user_id)
     except ValueError:
         uid = None
 
-    result = await agent.recommend(
-        query=movie_title,
-        user_id=uid,
-        top_k=20,
-    )
-    result["recommendation_movies"] = [
-        _enrich(r) for r in result["recommendation_movies"]
-    ]
-    return result
+    async def _refresh_recs():
+        try:
+            result = await agent.recommend(
+                query=movie_title,
+                user_id=uid,
+                top_k=20,
+            )
+            enriched = [_enrich(r) for r in result.get("recommendation_movies", [])]
+            # Stash in the feed so /api/feed can serve them on the next poll
+            if enriched:
+                _interaction_feed.appendleft({
+                    "type": "_rec_cache",
+                    "user": user_id,
+                    "movies": enriched,
+                    "time": ts,
+                })
+        except Exception as exc:
+            logger.debug("[Click] Background rec refresh failed: %s", exc)
+
+    asyncio.ensure_future(_refresh_recs())
+
+    # Return immediately with current feed recommendations
+    return {"recommendation_movies": [], "event": event}
 
 
 @app.get("/api/rate/{movie_id}/{rating}")
@@ -557,11 +577,13 @@ async def feed(
 ):
     """
     Return the recent live interaction events + a personalised recommendation
-    list derived from the most recent click event.
+    list. Recommendations come from the background cache populated by /api/click
+    — this endpoint never blocks on the ML pipeline.
     """
     events = list(_interaction_feed)[:limit]
-    last_movie_id = None
-    last_user_id = None
+
+    # Serve cached recs from the most recent background refresh
+    recs = []
     for ev in events:
         if user_id is not None and str(ev.get("user")) != str(user_id):
             continue
@@ -570,18 +592,25 @@ async def feed(
             last_user_id = ev.get("user")
             break
 
-    recs = []
-    if last_movie_id and agent:
+    # Fallback: fast TF-IDF trending (no blocking ML call)
+    if not recs and tfidf_engine.is_ready:
         try:
-            meta = tfidf_engine.get_by_id(int(last_movie_id))
-            q = meta.title if meta else f"movie {last_movie_id}"
-            uid = int(last_user_id) if last_user_id else None
-            result = await agent.recommend(query=q, user_id=uid, top_k=10)
-            recs = [_enrich(r) for r in result.get("recommendation_movies", [])]
-        except Exception as exc:
-            logger.debug("[Feed] Rec generation failed: %s", exc)
+            trending_metas = tfidf_engine.trending(10)
+            recs = [_enrich(CandidateMovie(
+                movie_id=m.movie_id,
+                title=m.title,
+                genres=m.genres,
+                year=m.year,
+                description=m.description,
+                poster=m.poster,
+                sources=["TF-IDF"],
+            )) for m in trending_metas]
+        except Exception:
+            pass
 
-    return {"feed": events, "recommendation_movies": recs}
+    # Filter internal cache events from the public feed
+    public_events = [ev for ev in events if ev.get("type") != "_rec_cache"]
+    return {"feed": public_events, "recommendation_movies": recs}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

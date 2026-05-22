@@ -113,6 +113,7 @@ class RecommendationAgent:
         vector_db,
         fusion_engine: Optional[HybridFusionEngine] = None,
         openai_key: Optional[str] = None,
+        openai_base_url: Optional[str] = None,
         llm_model: str = "gpt-4o-mini",
     ) -> None:
         self.cf_engine = cf_engine
@@ -123,8 +124,8 @@ class RecommendationAgent:
         self._openai_client = None
         self._llm_model = llm_model
         if openai_key and _OPENAI_AVAILABLE:
-            self._openai_client = AsyncOpenAI(api_key=openai_key)
-            logger.info("[Agent] OpenAI LLM explanation enabled (model=%s).", llm_model)
+            self._openai_client = AsyncOpenAI(api_key=openai_key, base_url=openai_base_url)
+            logger.info("[Agent] OpenAI LLM explanation enabled (model=%s, base_url=%s).", llm_model, openai_base_url)
 
     # ── Public async API ──────────────────────────────────────────────────────
 
@@ -239,7 +240,7 @@ class RecommendationAgent:
         """Tool_CF: Personalised recommendations via dot-product on ALS latent factors."""
         if user_id is None or not self.cf_engine.is_ready:
             return []
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None, self.cf_engine.recommend, user_id, limit
         )
@@ -248,14 +249,14 @@ class RecommendationAgent:
         """Tool_TFIDF: Lexical entity search via TF-IDF cosine similarity."""
         if not self.tfidf_engine.is_ready:
             return []
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None, self.tfidf_engine.search, query, limit
         )
 
     async def _tool_rag(self, query: str, limit: int):
         """Tool_RAG: Dense semantic search via HNSW ANN in Qdrant vector DB."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         try:
             return await loop.run_in_executor(
                 None, self.vector_db.search, query, limit

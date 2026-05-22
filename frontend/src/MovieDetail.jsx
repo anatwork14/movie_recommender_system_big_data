@@ -153,14 +153,13 @@ function MovieDetail({ movieId, recommendations, onOpenMovie, onRated }) {
               <p className='fw-bold'>Average Rating</p>
               {average == null ? (
                 <div className="avg-count">No ratings yet</div>
-              ) 
-              : (
+              ) : (
                 <div className="average-line">
                     <div className="avg-number">
                       {average.toFixed(1)}
                       <span className="secondary"> / 5</span>
                     </div>
-                    <span className="avg-count">{ratingCount !== null ? `(From ${ratingCount} users)` : ''}</span>
+                    <span className="avg-count">({ratingCount} users)</span>
                 </div>
               )}
             </fieldset>

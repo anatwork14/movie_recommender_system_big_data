@@ -15,8 +15,12 @@ def display_title(value):
         return title
     return f"{match.group('article')} {match.group('title')}{match.group('year') or ''}"
 
+import os
+
 # 1. Initialize Qdrant Client (Connecting to your docker container)
-qdrant = QdrantClient(host="localhost", port=6333)
+qdrant_host = os.getenv("QDRANT_HOST", "localhost")
+qdrant_port = int(os.getenv("QDRANT_PORT", "6333"))
+qdrant = QdrantClient(host=qdrant_host, port=qdrant_port)
 collection_name = "movie_content"
 
 # Modern approach: Check if exists, then create (replaces deprecated recreate_collection)
