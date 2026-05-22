@@ -135,10 +135,10 @@ function MovieDetail({ movieId, recommendations, onOpenMovie, onRated }) {
 
           <div className="detail-copy">
             <h1>{movie.title}</h1>
-            <p className="meta-line d-flex align-items-center flex-wrap gap-5 mt-4">
+            <p className="meta-line movie-meta">
               {movie.year && <span>{movie.year}</span>}
               {movie.genres ? (
-                <span className="d-flex align-items-center flex-wrap gap-2">
+                <span className="movie-meta">
                   {formatGenres(movie.genres)
                     .split(',')
                     .map((g) => (
@@ -150,7 +150,7 @@ function MovieDetail({ movieId, recommendations, onOpenMovie, onRated }) {
             <p className="description">{movie.description || 'No description available.'}</p>
 
             <fieldset>
-              <p className='fw-bold'>Average Rating</p>
+              <p className="info-block-title">Average Rating</p>
               {average == null ? (
                 <div className="avg-count">No ratings yet</div>
               ) : (
@@ -169,12 +169,12 @@ function MovieDetail({ movieId, recommendations, onOpenMovie, onRated }) {
         <section className="empty-state">{status}</section>
       )}
 
-      <div className='mb-5'>
-        <hr/>
+      <div className="rating-section">
+        <hr className="separator" />
         {/* Your Rating Form */}
         <form className="rating-form" onSubmit={handleSubmit}>
           <fieldset>
-            <p className='fw-bold'>Rate this movie</p>
+            <p className="info-block-title">Rate this movie</p>
             
             <div className="star-options">
               {[5, 4, 3, 2, 1].map((value) => (

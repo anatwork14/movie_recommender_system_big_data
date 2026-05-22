@@ -1,127 +1,299 @@
-# Big Data Recommender System 🎬
+# Hybrid Movie Recommender System (Big Data)
 
-A real-time, hybrid recommendation system leveraging **Kafka** for event streaming, **Qdrant** for semantic vector search, and **PySpark** for scalable collaborative filtering.
+Production-style hybrid recommender that combines:
+- Collaborative Filtering (ALS on MovieLens 25M-scale ratings)
+- Content retrieval (TF-IDF lexical search)
+- Semantic retrieval (Qdrant vector DB)
+- Agentic orchestration + Reciprocal Rank Fusion (RRF)
+- Real-time interaction streaming with Kafka
 
-## 🚀 Project Architecture
-The system follows a modern decoupled architecture for processing and recommending content:
+The project includes a FastAPI backend, a React frontend, Spark/PyTorch training jobs, and an offline evaluation script to compare approaches consistently.
 
-1.  **Frontend (React/Vite UI)**: An interactive dashboard where users can search, click, and rate movies.
-2.  **Streaming Layer (Kafka)**: User interactions (clicks, ratings) are pushed to specific topics in real-time.
-3.  **Real-time Logic (Content-Based)**: A background consumer retrieves the semantic vector of the interacted movie from Qdrant and finds similar content instantly.
-4.  **Batch Layer (Collaborative Filtering)**: A PySpark ALS job trains user/movie latent factors from historical ratings.
-5.  **Vector DB (Qdrant)**: Stores embeddings for 26,000+ movies, enabling lightning-fast similarity queries.
+## 1. What This Repository Contains
 
----
+- `backend/`: FastAPI API and orchestration logic.
+- `frontend/`: React/Vite web app.
+- `src/recsys/engines/`: CF, TF-IDF, and fusion engines.
+- `spark_jobs/collaborative_filtering.py`: Spark ALS training (explicit feedback).
+- `spark_jobs/ncf_training.py`: Experimental NCF trainer (implicit feedback).
+- `data_processing_pipeline/indexer.py`: Embedding + Qdrant indexing.
+- `kafka_streaming/`: Kafka producer/consumer utilities and legacy Flask demo.
+- `scripts/evaluate.py`: Unified offline metrics runner (CF, TF-IDF, Hybrid).
 
-## 🛠 Tech Stack
-- **Languages**: Python, HTML/JS
-- **Streaming**: Apache Kafka (via Confluent-Kafka)
-- **Vector Database**: Qdrant
-- **ML Models**: Sentence-Transformers (`all-MiniLM-L6-v2`)
-- **Big Data**: Apache Spark (PySpark)
-- **Web Frameworks**: FastAPI backend, React/Vite frontend, legacy Flask dashboard
-- **Containerization**: Docker & Docker Compose
+## 2. System Architecture
 
----
+1. User actions (click/rate/search) come from the frontend.
+2. Backend records interactions and can push to Kafka.
+3. Candidate generators run in parallel:
+- CF (ALS factors)
+- TF-IDF lexical retrieval
+- RAG semantic retrieval from Qdrant (if available)
+4. `HybridFusionEngine` merges ranked lists with RRF.
+5. API returns ranked movies + explainability metadata (`sources`, per-engine ranks).
 
-## 📊 System Components
+## 3. Prerequisites
 
-### 1. Data Pipeline
-- **`indexer.py`**: Processes the MovieLens dataset, generates semantic embeddings for movie descriptions, and upserts them to Qdrant with rich metadata.
-- **`search.py`**: Provides utility functions for semantic search across the collection.
+Required:
+- Python 3.10+
+- Node.js 18+
+- npm
+- Docker + Docker Compose
 
-### 2. Kafka Streaming
-- **`producer.py`**: A robust wrapper for sending user interaction JSON payloads to Kafka.
-- **`web_dashboard.py`**: Hosts the web server and runs a background thread to consume Kafka events and trigger recommendations.
+Optional:
+- OpenAI API key for richer LLM-generated explanation text in `/api/recommend`
 
-### 3. Collaborative Filtering Model
-- **`spark_jobs/collaborative_filtering.py`**: Full PySpark ALS trainer. It reads `data/process_movie_rating.csv` and writes `models/als/user_factors.parquet`, `models/als/item_factors.parquet`, and `models/als/training_metrics.txt`.
-- **`src/recsys/engines/cf_engine.py`**: Runtime recommendation engine. It loads ALS factors and ranks movies for a user with a dot product.
-- **`spark_jobs/ncf_training.py`**: Experimental Neural Collaborative Filtering trainer. It saves a PyTorch checkpoint, but the backend does not serve this model yet.
+## 4. Environment Setup
 
-### 4. Per-User Recommendations
-The React navbar lets you switch the current demo user ID. This user ID is passed to the backend on click, rating, feed, and agent recommendation requests.
+From project root:
 
-For a user that exists in `data/process_movie_rating.csv`, the ALS collaborative filtering model can return personalized candidates based on that user's historical rating pattern. For example, user `1500` and user `1337` can receive different CF recommendations because they have different learned user vectors.
+```bash
+cp .env.example .env
+```
 
-For a new or unknown user ID, collaborative filtering has no stored user vector, so the backend falls back to content-based recommendations from TF-IDF and Qdrant RAG. In the UI, a brand-new user may initially show no recommended films until they click or search for movies.
+Important `.env` keys:
+- `PORT=5001`
+- `QDRANT_HOST=localhost`
+- `QDRANT_PORT=6333`
+- `KAFKA_BOOTSTRAP=localhost:9092`
+- `OPENAI_API_KEY=` (optional)
 
-When a movie is clicked, the backend recommends films using a hybrid of:
-- the current user's CF taste profile,
-- the clicked movie's title, genres, and description,
-- semantic similarity from Qdrant,
-- lexical similarity from TF-IDF.
+## 5. Quick Start (Recommended)
 
-The frontend keeps a small in-memory recommendation cache per user during the current browser session. Switching back to a previous user restores their latest recommendations, but refreshing the browser clears this cache.
+### Option A: One-command orchestration script
 
----
+```bash
+./run.sh up
+```
 
-## 📥 Input & Output
-- **Input**:
-    - `data/process_movie.csv`: Movie metadata (Titles, Genres, Overviews).
-    - User Interactions: Real-time JSON streams (User ID, Movie ID, Timestamp, Action Type).
-- **Output**:
-    - **Real-time**: "Because you viewed X, you might like Y" (Semantic similarity).
-    - **Search**: Top-K movies matching a natural language query.
-    - **Batch CF**: Top-K recommendations based on global user/movie rating patterns.
+This starts Docker services and checks/indexes Qdrant if needed.
 
----
+### Option B: Docker Compose directly
 
-## 📏 Metrics for Success
-- **Relevance**: 
-    - *Content-Based*: Cosine similarity score between vectors.
-    - *Collaborative Filtering*: Root Mean Squared Error (RMSE) on rating predictions.
-- **Performance**: 
-    - *Latency*: UI update speed after a click (Target: < 500ms).
-    - *Throughput*: Number of Kafka messages processed per second.
-- **User Engagement**: Click-Through Rate (CTR) on suggested movies.
+```bash
+docker-compose up --build -d
+```
 
----
+Exposed services:
+- Frontend (Docker): `http://localhost:3005`
+- Backend API docs: `http://localhost:5001/docs`
+- Backend health: `http://localhost:5001/api/health`
+- Qdrant: `http://localhost:6333`
+- Kafka broker: `localhost:9092`
 
-## ⚙️ Installation & Setup
-1. **Infrastructure**:
-   ```bash
-   docker-compose up -d
-   ```
-2. **Environment**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. **Indexing**:
-   ```bash
-   python data_processing_pipeline/indexer.py
-   ```
-4. **Train the full ALS collaborative filtering model**:
-   ```bash
-   python spark_jobs/collaborative_filtering.py --sample 1.0
-   ```
-   For a faster test run:
-   ```bash
-   python spark_jobs/collaborative_filtering.py --sample 0.1
-   ```
-5. **Run FastAPI backend**:
-   ```bash
-   python -m uvicorn backend.main:app --host 0.0.0.0 --port 5000
-   ```
-   On startup, the backend loads `models/als/user_factors.parquet` and `models/als/item_factors.parquet` when they exist. If they do not exist, it falls back to `models/als_factors.pkl`, or trains a small 3% demo model from `data/process_movie_rating.csv`.
-6. **Run legacy Flask dashboard**:
-   ```bash
-   python kafka_streaming/web_dashboard.py
-   ```
-7. **Run frontend**:
-    open a new terminal
-    ```bash
-   cd frontend
-   npm run dev -- --host
-   ```
-   Some urls may not work in WSL so try opening all 3 of them
+## 6. Local Development Mode
 
----
+Use Docker for infra (Kafka + Qdrant), run app services locally:
 
-## 🔮 Roadmap
-- [x] Kafka Producer/Consumer Integration.
-- [x] Semantic Search (Natural Language).
-- [x] Real-time Content-Based Feedback Loop.
-- [x] Full ALS training in PySpark.
-- [x] Hybridized results combining collaborative, lexical, and semantic recommendations.
-- [ ] Serve the experimental NCF checkpoint in the backend.
+```bash
+./run.sh local
+```
+
+Or manually:
+
+```bash
+# terminal 1
+python3 -m uvicorn backend.main:app --reload --port 5001
+
+# terminal 2
+cd frontend
+npm install
+npm run dev -- --host
+```
+
+Local frontend URL is typically Vite default (`http://localhost:5173`).
+
+## 7. Data and Model Preparation
+
+### 7.1 Build Qdrant semantic index
+
+```bash
+python3 data_processing_pipeline/indexer.py
+```
+
+### 7.2 Train Collaborative Filtering (ALS)
+
+Full training:
+
+```bash
+python3 spark_jobs/collaborative_filtering.py --sample 1.0
+```
+
+Fast validation run:
+
+```bash
+python3 spark_jobs/collaborative_filtering.py --sample 0.1
+```
+
+Outputs:
+- `models/als/user_factors.parquet`
+- `models/als/item_factors.parquet`
+- `models/als/training_metrics.txt`
+
+### 7.3 Train Experimental NCF (optional)
+
+```bash
+python3 spark_jobs/ncf_training.py --epochs 20 --sample 0.05
+```
+
+Outputs:
+- `models/ncf/ncf_checkpoint.pt`
+- `models/ncf/ncf_meta.pkl`
+
+Note: NCF artifacts are not wired into serving by default.
+
+## 8. How To Demonstrate The Project Correctly
+
+Use this flow for a robust demo:
+
+1. Open frontend and verify backend health.
+2. Login with an existing account from `backend` seeded users.
+3. Home page:
+- Show `Top Trending` row.
+- Show `Recommended for You` and switch source filters (`All`, `CF`, `TF-IDF`).
+4. Search page:
+- Query by movie title and mood/genre text.
+- Open a result and verify detail page metadata.
+5. Movie detail:
+- Submit a rating.
+- Confirm average rating and status update.
+6. Agent panel:
+- Ask natural language request (e.g. "dark sci-fi with mind-bending plot").
+- Explain provenance badges (`CF`, `TF-IDF`, `RAG`) and merged behavior.
+7. Kafka feed:
+- Trigger clicks/ratings and show live events in sidebar.
+
+## 9. API Surface (Main Endpoints)
+
+- `GET /api/health`
+- `GET /api/trending`
+- `GET /api/movie/{movie_id}`
+- `GET /api/search?q=...&limit=...`
+- `GET /api/feed`
+- `GET /api/click/{movie_id}`
+- `GET /api/rate/{movie_id}/{rating}`
+- `GET /api/average_rating/{movie_id}`
+- `POST /api/recommend`
+
+## 10. Evaluation and Metrics
+
+This repository now includes a reproducible evaluator:
+
+```bash
+python3 scripts/evaluate.py --users 300 --k 10
+```
+
+Generated report:
+- `models/evaluation_report.json`
+
+### 10.1 Metrics included
+
+`CF pointwise metrics`:
+- RMSE
+- MAE
+
+`Ranking metrics @K` (strict leave-one-out next-item style):
+- HitRate@K
+- NDCG@K
+- MRR@K
+- Catalog coverage@K
+- Mean/P95 latency (ms)
+
+`Implicit candidate ranking` (1 positive + 100 negatives per user, standard implicit protocol):
+- HitRate@K
+- NDCG@K
+- MRR@K
+
+`TF-IDF lexical sanity`:
+- Self-retrieval Recall@1
+- Self-retrieval Recall@10
+- Mean/P95 query latency (ms)
+
+### 10.2 Latest metrics from this environment (2026-05-22)
+
+From `models/evaluation_report.json` (`--users 300 --k 10`):
+
+- Dataset:
+  - 19,937,428 ratings
+  - 138,493 users
+  - 25,450 movies
+
+- CF pointwise:
+  - RMSE: `0.7761`
+  - MAE: `0.6060`
+
+- Strict ranking@10:
+  - CF HitRate@10: `0.0000`
+  - TF-IDF HitRate@10: `0.0133`
+  - Hybrid(CF+TF-IDF) HitRate@10: `0.0033`
+
+- Implicit candidate ranking@10 (more stable for recommender comparison):
+  - CF HitRate@10: `0.5034`
+  - TF-IDF HitRate@10: `0.0369`
+  - Hybrid(CF+TF-IDF) HitRate@10: `0.4362`
+
+- TF-IDF self-retrieval:
+  - Recall@1: `0.772`
+  - Recall@10: `0.922`
+  - Mean latency: `7.29 ms`
+
+Interpretation:
+- CF is strongest on implicit candidate ranking (personal preference signal).
+- TF-IDF provides broad lexical coverage and useful recall for search-like behavior.
+- Hybrid is beneficial for explainability/diversification, but relative gains depend on query/user protocol and fusion weights.
+
+### 10.3 Re-running ALS training metrics
+
+```bash
+python3 spark_jobs/collaborative_filtering.py --sample 1.0
+cat models/als/training_metrics.txt
+```
+
+Current saved ALS training summary (`models/als/training_metrics.txt`):
+- rank: `50`
+- max_iter: `15`
+- reg_param: `0.1`
+- rmse: `0.805119`
+- elapsed_s: `205.6`
+
+## 11. Health Checks and Operations
+
+Check status:
+
+```bash
+./run.sh health
+```
+
+Stop all services:
+
+```bash
+./run.sh down
+```
+
+## 12. Troubleshooting
+
+- `vite: command not found`:
+  - Run `cd frontend && npm install` first.
+
+- `Qdrant collection movie_content not found`:
+  - Run `python3 data_processing_pipeline/indexer.py`.
+
+- No CF recommendations for a user:
+  - User may be cold-start (not in ALS factors). Interact with movies, or use search/agent flow.
+
+- Backend starts but agent explanation is basic:
+  - Set `OPENAI_API_KEY` in `.env` and restart backend.
+
+- Kafka feed empty:
+  - Ensure broker is up and actions (click/rate) are being triggered from frontend.
+
+## 13. Notes on Reproducibility
+
+- Random seed is fixed in training/evaluation scripts where applicable.
+- `scripts/evaluate.py` writes one JSON report so results can be versioned and compared over time.
+- For fair model comparison, keep `--users`, `--k`, and seed constant across runs.
+
+## 14. Roadmap
+
+- Wire NCF model into online serving path for side-by-side online evaluation.
+- Add Qdrant/RAG-specific offline metrics (semantic recall@K with labeled test set).
+- Add online CTR/session metrics aggregation pipeline from Kafka events.

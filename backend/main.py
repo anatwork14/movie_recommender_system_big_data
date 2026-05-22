@@ -290,6 +290,11 @@ class RecommendRequest(BaseModel):
     top_k: int = 10
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -317,6 +322,13 @@ def _enrich(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+_DEMO_USERS: Dict[str, Dict[str, Any]] = {
+    "alice": {"password": "alice123", "user_id": 1337, "name": "Alice"},
+    "bob": {"password": "bob123", "user_id": 2024, "name": "Bob"},
+    "charlie": {"password": "charlie123", "user_id": 7777, "name": "Charlie"},
+}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Routes
 # ─────────────────────────────────────────────────────────────────────────────
@@ -328,6 +340,37 @@ async def health():
         "tfidf_ready": tfidf_engine.is_ready,
         "cf_ready": cf_engine.is_ready,
     }
+
+
+@app.get("/api/auth/accounts")
+async def auth_accounts():
+    return {
+        "accounts": [
+            {"username": u, "name": v["name"], "user_id": v["user_id"]}
+            for u, v in _DEMO_USERS.items()
+        ]
+    }
+
+
+@app.post("/api/auth/login")
+async def auth_login(req: LoginRequest):
+    username = req.username.strip().lower()
+    row = _DEMO_USERS.get(username)
+    if not row or row["password"] != req.password:
+        raise HTTPException(401, "Invalid username or password")
+    return {
+        "ok": True,
+        "user": {
+            "username": username,
+            "name": row["name"],
+            "user_id": row["user_id"],
+        },
+    }
+
+
+@app.post("/api/auth/logout")
+async def auth_logout():
+    return {"ok": True}
 
 
 @app.get("/api/trending")
@@ -582,17 +625,32 @@ async def feed(
     """
     events = list(_interaction_feed)[:limit]
 
-    # Serve cached recs from the most recent background refresh
-    recs = []
+    # Serve cached recs from the most recent background refresh for this user.
+    recs: List[Dict[str, Any]] = []
     for ev in events:
         if user_id is not None and str(ev.get("user")) != str(user_id):
             continue
-        if ev.get("type") == "Click":
-            last_movie_id = ev.get("movie")
-            last_user_id = ev.get("user")
+        if ev.get("type") == "_rec_cache":
+            recs = ev.get("movies") or []
             break
 
-    # Fallback: fast TF-IDF trending (no blocking ML call)
+    # Fallback 1: generate recommendations on-demand for this user using
+    # the latest clicked movie title as query context.
+    if not recs and user_id is not None and agent is not None:
+        latest_click_title = ""
+        for ev in events:
+            if str(ev.get("user")) == str(user_id) and ev.get("type") == "Click":
+                latest_click_title = str(ev.get("detail") or "").strip()
+                break
+        query = latest_click_title or "popular movies"
+        try:
+            uid = int(user_id)
+            result = await agent.recommend(query=query, user_id=uid, top_k=20)
+            recs = [_enrich(r) for r in result.get("recommendation_movies", [])]
+        except Exception as exc:
+            logger.debug("[Feed] on-demand recommend failed: %s", exc)
+
+    # Fallback 2: fast TF-IDF trending (no blocking ML call)
     if not recs and tfidf_engine.is_ready:
         try:
             trending_metas = tfidf_engine.trending(10)

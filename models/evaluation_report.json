@@ -1,0 +1,74 @@
+{
+  "config": {
+    "k": 10,
+    "users_requested": 300,
+    "min_ratings_per_user": 8,
+    "seed": 42
+  },
+  "dataset": {
+    "ratings_rows": 19937428,
+    "users": 138493,
+    "movies": 25450,
+    "eligible_users": 138493
+  },
+  "cf_pointwise": {
+    "known_interactions": 19936527,
+    "rmse": 0.776081919670105,
+    "mae": 0.6059550642967224
+  },
+  "ranking_at_k": {
+    "cf": {
+      "users_evaluated": 300,
+      "hit_rate_at_k": 0.0,
+      "ndcg_at_k": 0.0,
+      "mrr_at_k": 0.0,
+      "catalog_coverage_at_k": 0.00843984581050923,
+      "mean_latency_ms": 2.0075643078113594,
+      "p95_latency_ms": 5.4518631077371555
+    },
+    "tfidf": {
+      "users_evaluated": 300,
+      "hit_rate_at_k": 0.013333333333333334,
+      "ndcg_at_k": 0.00582735307793776,
+      "mrr_at_k": 0.003444444444444444,
+      "catalog_coverage_at_k": 0.08780685737472103,
+      "mean_latency_ms": 7.361379271217932,
+      "p95_latency_ms": 7.899881969206035
+    },
+    "hybrid_cf_tfidf_rrf": {
+      "users_evaluated": 300,
+      "hit_rate_at_k": 0.0033333333333333335,
+      "ndcg_at_k": 0.0011111111111111111,
+      "mrr_at_k": 0.0004761904761904762,
+      "catalog_coverage_at_k": 0.031446540880503145,
+      "mean_latency_ms": 20.393304702981066,
+      "p95_latency_ms": 21.24161453684792
+    }
+  },
+  "implicit_candidate_ranking": {
+    "users_evaluated": 298,
+    "candidate_size": 101,
+    "cf": {
+      "hit_rate_at_k": 0.5033557046979866,
+      "ndcg_at_k": 0.2534768670259106,
+      "mrr_at_k": 0.1774155747310112
+    },
+    "tfidf": {
+      "hit_rate_at_k": 0.03691275167785235,
+      "ndcg_at_k": 0.02681898134954684,
+      "mrr_at_k": 0.02360178970917226
+    },
+    "hybrid_cf_tfidf_rrf": {
+      "hit_rate_at_k": 0.436241610738255,
+      "ndcg_at_k": 0.19685197397468412,
+      "mrr_at_k": 0.1273942686694365
+    }
+  },
+  "tfidf_self_retrieval": {
+    "queries": 500,
+    "recall_at_1": 0.772,
+    "recall_at_10": 0.922,
+    "mean_latency_ms": 7.285834669135511,
+    "p95_latency_ms": 8.126315276604146
+  }
+}

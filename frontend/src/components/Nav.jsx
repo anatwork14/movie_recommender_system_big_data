@@ -1,7 +1,9 @@
 import { useState } from 'react'
 
-function Nav({ initialQuery = '', userId = '1337', onNavigate, onSearch, onUserChange }) {
+function Nav({ initialQuery = '', user, onNavigate, onSearch, onLogin, onLogout }) {
   const [query, setQuery] = useState(initialQuery)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
 
   function handleSubmit(event) {
     event.preventDefault()
@@ -29,26 +31,30 @@ function Nav({ initialQuery = '', userId = '1337', onNavigate, onSearch, onUserC
         <button type="submit">Search</button>
       </form>
 
-      <div className="user-profile" title={`Current user: ${userId}`}>
-        <div className="avatar">U</div>
-        <div className="user-info">
-          <div className="user-label">User</div>
-          <div className="user-id">{userId}</div>
+      {user ? (
+        <div className="user-profile" title={`Current user: ${user.username}`}>
+          <div className="avatar">{String(user.name || 'U').slice(0, 1).toUpperCase()}</div>
+          <div className="user-info">
+            <div className="user-label">{user.name}</div>
+            <div className="user-id">{user.username} · #{user.user_id}</div>
+          </div>
+          <button type="button" className="user-edit" aria-label="Logout" onClick={onLogout}>
+            Logout
+          </button>
         </div>
-        <button
-          type="button"
-          className="user-edit"
-          aria-label="Change user id"
-          onClick={() => {
-            const val = window.prompt('Set current user id (for demo):', String(userId))
-            if (val !== null && val.trim() !== '') {
-              onUserChange?.(val.trim())
-            }
+      ) : (
+        <form
+          className="user-profile"
+          onSubmit={(e) => {
+            e.preventDefault()
+            onLogin?.(username.trim(), password)
           }}
         >
-          ✎
-        </button>
-      </div>
+          <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="username" />
+          <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="password" type="password" />
+          <button type="submit" className="user-edit">Login</button>
+        </form>
+      )}
     </nav>
   )
 }

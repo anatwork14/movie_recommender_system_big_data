@@ -18,6 +18,13 @@ function Poster({ movie, compact = false }) {
 
 function Card({ movie, onOpen }) {
   const year = movie.year && movie.year !== 'Unknown' ? movie.year : ''
+  const sourceLabels = (() => {
+    if (Array.isArray(movie.sources) && movie.sources.length > 0) return movie.sources
+    const labels = []
+    if (movie.cf_rank != null) labels.push('CF')
+    if (movie.tfidf_rank != null) labels.push('TF-IDF')
+    return labels
+  })()
 
   return (
     <button type="button" className="movie-card" onClick={() => onOpen(movie)}>
@@ -29,6 +36,9 @@ function Card({ movie, onOpen }) {
         <p className="meta-line">
           {[year, formatGenres(movie.genres)].filter(Boolean).join(' • ')}
         </p>
+        {sourceLabels.length > 0 && (
+          <p className="meta-line">{sourceLabels.join(' + ')}</p>
+        )}
       </div>
     </button>
   )

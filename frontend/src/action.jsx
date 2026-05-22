@@ -6,36 +6,29 @@ async function fetchJson(url, options = {}) {
   return response.json()
 }
 
+function readCurrentUserId() {
+  try {
+    const raw = localStorage.getItem('currentUser')
+    if (!raw) return '1337'
+    const parsed = JSON.parse(raw)
+    return String(parsed?.user_id ?? '1337')
+  } catch {
+    return '1337'
+  }
+}
+
 async function sendClickAction(movieId) {
-  const userId = (() => {
-    try {
-      return localStorage.getItem('currentUserId') || '1337'
-    } catch {
-      return '1337'
-    }
-  })()
+  const userId = readCurrentUserId()
   return fetchJson(`/api/click/${movieId}?user_id=${encodeURIComponent(userId)}`)
 }
 
 async function sendRateAction(movieId, rating) {
-  const userId = (() => {
-    try {
-      return localStorage.getItem('currentUserId') || '1337'
-    } catch {
-      return '1337'
-    }
-  })()
+  const userId = readCurrentUserId()
   return fetchJson(`/api/rate/${movieId}/${Number(rating).toFixed(1)}?user_id=${encodeURIComponent(userId)}`)
 }
 
 async function fetchUserRating(movieId) {
-  const userId = (() => {
-    try {
-      return localStorage.getItem('currentUserId') || '1337'
-    } catch {
-      return '1337'
-    }
-  })()
+  const userId = readCurrentUserId()
   return fetchJson(`/api/user_rating/${movieId}?user_id=${encodeURIComponent(userId)}`)
 }
 
@@ -53,13 +46,7 @@ async function fetchAverage(movieId) {
 }
 
 async function fetchFeed() {
-  const userId = (() => {
-    try {
-      return localStorage.getItem('currentUserId') || '1337'
-    } catch {
-      return '1337'
-    }
-  })()
+  const userId = readCurrentUserId()
   const params = new URLSearchParams({ user_id: userId })
   return fetchJson(`/api/feed?${params.toString()}`)
 }

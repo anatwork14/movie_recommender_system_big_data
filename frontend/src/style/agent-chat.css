@@ -7,7 +7,7 @@
 .hero-sub {
   margin-top: 16px;
   max-width: 640px;
-  color: #a7adbb;
+  color: #d4d4d4;
   font-size: 1rem;
   line-height: 1.65;
 }
@@ -21,13 +21,13 @@
 .agent-chat {
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(96, 190, 249, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
-  background: linear-gradient(160deg, rgba(14, 17, 28, 0.95), rgba(20, 24, 38, 0.98));
+  background: linear-gradient(170deg, rgba(20, 20, 20, 0.96), rgba(12, 12, 12, 0.98));
   backdrop-filter: blur(20px);
   overflow: hidden;
   box-shadow:
-    0 0 0 1px rgba(96, 190, 249, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.04),
     0 24px 64px rgba(0, 0, 0, 0.45);
 }
 
@@ -38,7 +38,7 @@
   gap: 12px;
   padding: 16px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(96, 190, 249, 0.05);
+  background: rgba(229, 9, 20, 0.08);
 }
 
 .chat-icon {
@@ -55,7 +55,7 @@
 .chat-header small {
   display: block;
   margin-top: 2px;
-  color: #5d6a84;
+  color: #9f9f9f;
   font-size: 0.72rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -72,8 +72,8 @@
 }
 
 .chat-status.online {
-  background: rgba(61, 220, 151, 0.15);
-  color: #3ddc97;
+  background: rgba(44, 208, 125, 0.18);
+  color: #53e6a0;
   border: 1px solid rgba(61, 220, 151, 0.3);
   animation: pulse-glow 2.4s ease-in-out infinite;
 }
@@ -94,7 +94,7 @@
   padding: 20px;
   scroll-behavior: smooth;
   scrollbar-width: thin;
-  scrollbar-color: rgba(96, 190, 249, 0.35) transparent;
+  scrollbar-color: rgba(229, 9, 20, 0.5) transparent;
 }
 
 /* ── Bubble ──────────────────────────────────────────────── */
@@ -121,9 +121,9 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: rgba(96, 190, 249, 0.12);
+  background: rgba(229, 9, 20, 0.2);
   font-size: 1rem;
-  border: 1px solid rgba(96, 190, 249, 0.15);
+  border: 1px solid rgba(229, 9, 20, 0.3);
 }
 
 .bubble-body {
@@ -145,14 +145,14 @@
 }
 
 .chat-bubble.assistant .bubble-text {
-  background: rgba(96, 190, 249, 0.07);
-  border: 1px solid rgba(96, 190, 249, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: #d9dce8;
 }
 
 .chat-bubble.user .bubble-text {
-  background: linear-gradient(135deg, rgba(96, 190, 249, 0.22), rgba(34, 154, 229, 0.18));
-  border: 1px solid rgba(96, 190, 249, 0.28);
+  background: linear-gradient(135deg, rgba(229, 9, 20, 0.24), rgba(178, 7, 16, 0.26));
+  border: 1px solid rgba(229, 9, 20, 0.44);
   color: #ffffff;
 }
 
@@ -161,8 +161,8 @@
   display: flex;
   gap: 5px;
   padding: 14px 18px;
-  background: rgba(96, 190, 249, 0.07);
-  border: 1px solid rgba(96, 190, 249, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   width: fit-content;
 }
@@ -171,7 +171,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: rgba(96, 190, 249, 0.6);
+  background: rgba(229, 9, 20, 0.7);
   animation: bounce 1.2s ease-in-out infinite;
 }
 
@@ -203,7 +203,7 @@
 
 .badge-cf     { background: rgba(61, 220, 151, 0.12); color: #3ddc97; border-color: rgba(61, 220, 151, 0.25); }
 .badge-tfidf  { background: rgba(255, 193, 7, 0.12);  color: #ffc107; border-color: rgba(255, 193, 7, 0.25); }
-.badge-rag    { background: rgba(96, 190, 249, 0.12);  color: #60bef9; border-color: rgba(96, 190, 249, 0.25); }
+.badge-rag    { background: rgba(229, 9, 20, 0.16);  color: #ff5c67; border-color: rgba(229, 9, 20, 0.25); }
 .badge-count  { background: rgba(180, 180, 210, 0.08); color: #8890a8; border-color: rgba(180, 180, 210, 0.15); }
 
 /* ── Agent movie list ────────────────────────────────────── */
@@ -230,8 +230,8 @@
 }
 
 .agent-movie-card:hover {
-  border-color: rgba(96, 190, 249, 0.45);
-  background: rgba(96, 190, 249, 0.06);
+  border-color: rgba(229, 9, 20, 0.45);
+  background: rgba(229, 9, 20, 0.08);
   transform: translateX(3px);
 }
 
@@ -240,7 +240,7 @@
   height: 84px;
   border-radius: 6px;
   overflow: hidden;
-  background: rgba(96, 190, 249, 0.06);
+  background: rgba(229, 9, 20, 0.08);
   flex-shrink: 0;
 }
 
@@ -275,13 +275,13 @@
 
 .agent-meta {
   font-size: 0.73rem;
-  color: #5d6a84;
+  color: #b3b3b3;
 }
 
 .agent-desc {
   margin: 4px 0 0;
   font-size: 0.78rem;
-  color: #7a8299;
+  color: #b9b9b9;
   line-height: 1.45;
   overflow: hidden;
   display: -webkit-box;
@@ -308,7 +308,7 @@
 
 .source-cf     { background: rgba(61, 220, 151, 0.1);  color: #3ddc97; }
 .source-tfidf  { background: rgba(255, 193, 7, 0.1);   color: #ffc107; }
-.source-rag    { background: rgba(96, 190, 249, 0.1);   color: #60bef9; }
+.source-rag    { background: rgba(229, 9, 20, 0.12);   color: #ff626b; }
 
 /* ── Example prompt chips ────────────────────────────────── */
 .example-prompts {
@@ -320,10 +320,10 @@
 
 .prompt-chip {
   padding: 7px 13px;
-  border: 1px solid rgba(96, 190, 249, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 999px;
-  background: rgba(96, 190, 249, 0.05);
-  color: #8899b8;
+  background: rgba(255, 255, 255, 0.03);
+  color: #b5b5b5;
   font-size: 0.78rem;
   cursor: pointer;
   transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
@@ -331,9 +331,9 @@
 }
 
 .prompt-chip:hover {
-  border-color: rgba(96, 190, 249, 0.5);
-  color: #c4d3ef;
-  background: rgba(96, 190, 249, 0.1);
+  border-color: rgba(229, 9, 20, 0.5);
+  color: #fff;
+  background: rgba(229, 9, 20, 0.16);
 }
 
 /* ── Input bar ───────────────────────────────────────────── */
@@ -349,9 +349,9 @@
 .chat-input {
   min-width: 0;
   padding: 10px 14px;
-  border: 1px solid rgba(96, 190, 249, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 10px;
-  background: rgba(96, 190, 249, 0.04);
+  background: rgba(255, 255, 255, 0.03);
   color: #e0e4ef;
   font: inherit;
   font-size: 0.9rem;
@@ -362,12 +362,12 @@
 
 .chat-input:focus {
   outline: none;
-  border-color: rgba(96, 190, 249, 0.5);
-  background: rgba(96, 190, 249, 0.07);
+  border-color: rgba(229, 9, 20, 0.65);
+  background: rgba(229, 9, 20, 0.06);
 }
 
 .chat-input::placeholder {
-  color: #4a5472;
+  color: #7d7d7d;
 }
 
 .chat-send {
@@ -376,7 +376,7 @@
   height: 44px;
   border: none;
   border-radius: 10px;
-  background: linear-gradient(135deg, rgba(96, 190, 249, 0.85), rgba(34, 154, 229, 0.85));
+  background: linear-gradient(135deg, rgba(229, 9, 20, 0.9), rgba(178, 7, 16, 0.9));
   color: #ffffff;
   font-size: 1.1rem;
   cursor: pointer;
