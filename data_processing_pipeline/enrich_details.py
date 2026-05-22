@@ -9,7 +9,7 @@ from tqdm import tqdm
 # ─────────────────────────────────────────────────────────────────────────────
 API_KEY = '719a37bb28bd0a34b4e34fdc2a3566e2'
 OUTPUT_FILE = 'enriched_movie_descriptions.csv'
-LINKS_FILE = '../data/link.csv'
+LINKS_FILE = './data/link.csv'
 SAVE_INTERVAL = 50  # Save to disk every N movies
 REQ_DELAY = 0.25    # Delay between requests to respect rate limits (4 req/sec)
 
@@ -62,7 +62,8 @@ def enrich_movies():
                         'movieId': movie_id,
                         'tmdbId': tmdb_id,
                         'title': data.get('title', 'Unknown'),
-                        'description': data.get('overview', '')
+                        'description': data.get('overview', ''),
+                        'poster': data.get('poster_path', '')
                     })
                 elif response.status_code == 429:
                     # TMDB Rate Limit - usually shouldn't happen with 0.25s delay

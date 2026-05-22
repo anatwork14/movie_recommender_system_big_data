@@ -1,22 +1,46 @@
-# Core Web & API
-flask==3.0.0
-flask-cors==4.0.0
+# ============================================================
+# requirements.txt — Hybrid RecSys Backend
+# Pinned exact versions for full reproducibility.
+# ============================================================
 
-# Messaging & Streaming
-confluent-kafka==2.3.0
+# ── Core Web & API ────────────────────────────────────────
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+httpx==0.27.0
 
-# Vector Database & Embeddings
-qdrant-client==1.17.1
-sentence-transformers==2.2.2
-torch==2.1.0
+# ── Async utilities ────────────────────────────────────────
+anyio==4.4.0
+aiofiles==23.2.1
 
-# Data Processing
-pandas==2.1.1
-numpy==1.26.0
+# ── Data Validation ────────────────────────────────────────
+pydantic==2.9.2
 
-# Big Data (Upcoming)
+# ── Messaging & Streaming ─────────────────────────────────
+confluent-kafka>=2.3.0
+
+# ── Vector Database & Embeddings ──────────────────────────
+qdrant-client>=1.17.1
+sentence-transformers>=2.6.0
+
+# ── Deep Learning ─────────────────────────────────────────
+torch>=2.3.0
+numpy>=1.26.0
+
+# ── ML & Content-Based Search ─────────────────────────────
+scikit-learn>=1.5.0
+scipy>=1.13.0
+
+# ── Data Processing ───────────────────────────────────────
+pandas>=2.2.0
+pyarrow>=16.0.0       # Required for Parquet I/O
+
+# ── Big Data (Spark ALS job) ──────────────────────────────
 pyspark==3.5.0
 
-# Utilities
+# ── LLM Integration (optional, graceful fallback if absent)
+openai>=1.40.0
+
+# ── Utilities ─────────────────────────────────────────────
 python-dotenv==1.0.0
 requests==2.31.0
