@@ -75,9 +75,10 @@ function Dashboard({ recommendations, onOpenMovie, userId }) {
         <p className="eyebrow">Hybrid AI · CF + TF-IDF + RAG</p>
         <h1>Discover your next favourite film</h1>
         <p className="hero-sub">
-          Powered by a 4-layer recommender: collaborative filtering on 20M ratings,
-          lexical TF-IDF search, semantic Qdrant vector search — fused by an AI Agent
-          with Reciprocal Rank Fusion.
+          Hybrid recommendation pipeline: we collect behavior signals (clicks, ratings,
+          searches), build user-item representations, generate candidates from collaborative
+          filtering and content-based TF-IDF retrieval, then fuse/rank results before showing
+          top picks. Use the toggle in "Recommended for You" to inspect each source.
         </p>
       </section>
 

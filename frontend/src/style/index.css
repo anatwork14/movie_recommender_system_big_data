@@ -1,12 +1,19 @@
 
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&display=swap');
+
 :root {
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  --primary-color: #60BEF9;
-  --search-bar-color: #1C2437;
-  --text-placeholder-color: #757573;
-  background: #12172A;
+  font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --primary-color: #e50914;
+  --primary-color-strong: #ff2a3a;
+  --bg-base: #090909;
+  --bg-elevated: #141414;
+  --bg-card: #1c1c1c;
+  --line-soft: rgba(255, 255, 255, 0.1);
+  --text-main: #f5f5f1;
+  --text-dim: #a7a7a7;
+  --search-bar-color: #151515;
+  --text-placeholder-color: #858585;
+  background: var(--bg-base);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -19,6 +26,8 @@
 
 body {
   margin: 0;
+  background: var(--bg-base);
+  color: var(--text-main);
 }
 
 #root {
@@ -26,7 +35,8 @@ body {
 }
 
 input::placeholder {
-  font-style: italic;
+  font-style: normal;
+  color: var(--text-placeholder-color);
 }
 
 button, a {

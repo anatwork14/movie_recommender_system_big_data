@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { fetchFeed, sendClickAction } from './action'
+import { fetchFeed, fetchJson, sendClickAction } from './action'
 import Dashboard from './Dashboard'
 import KafkaFeed from './components/KafkaFeed'
 import Nav from './components/Nav'
@@ -10,9 +10,11 @@ import './style/dashboard.css'
 function App() {
   const [route, setRoute] = useState(() => readRoute())
   const [feed, setFeed] = useState([])
-  const [userId, setUserId] = useState(() => readCurrentUserId())
+  const [currentUser, setCurrentUser] = useState(() => readCurrentUser())
+  const userId = String(currentUser?.user_id ?? '')
   const [recommendations, setRecommendations] = useState([])
   const [recommendationCache, setRecommendationCache] = useState({})
+  const [accounts, setAccounts] = useState([])
 
   const refreshFeed = useCallback(async () => {
     try {
@@ -27,13 +29,32 @@ function App() {
   }, [userId])
 
   useEffect(() => {
+    fetchJson('/api/auth/accounts').then((d) => setAccounts(d.accounts ?? [])).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!currentUser) return
     const initialRefreshId = window.setTimeout(refreshFeed, 0)
     const intervalId = window.setInterval(refreshFeed, 1000)
     return () => {
       window.clearTimeout(initialRefreshId)
       window.clearInterval(intervalId)
     }
-  }, [refreshFeed])
+  }, [currentUser, refreshFeed])
+
+  const handleLogin = useCallback(async (username, password) => {
+    const data = await fetchJson('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    })
+    const user = data.user
+    try {
+      localStorage.setItem('currentUser', JSON.stringify(user))
+    } catch {}
+    setCurrentUser(user)
+    setRecommendations(recommendationCache[String(user.user_id)] ?? [])
+  }, [recommendationCache])
 
   useEffect(() => {
     function handlePopState() {
@@ -56,30 +77,14 @@ function App() {
     [navigate],
   )
 
-  const handleUserChange = useCallback(
-    (nextUserId) => {
-      const normalized = String(nextUserId).trim()
-      if (!normalized || normalized === userId) {
-        return
-      }
-
-      setRecommendationCache((cache) => ({
-        ...cache,
-        [userId]: recommendations,
-      }))
-
-      try {
-        localStorage.setItem('currentUserId', normalized)
-      } catch {
-        // localStorage may be unavailable in restricted browser contexts.
-      }
-
-      setUserId(normalized)
-      setRecommendations(recommendationCache[normalized] ?? [])
-      navigate('/')
-    },
-    [navigate, recommendationCache, recommendations, userId],
-  )
+  const handleLogout = useCallback(() => {
+    try {
+      localStorage.removeItem('currentUser')
+    } catch {}
+    setCurrentUser(null)
+    setRecommendations([])
+    navigate('/')
+  }, [navigate])
 
   const handleOpenMovie = useCallback(
     (movie) => {
@@ -133,10 +138,12 @@ function App() {
       <Nav
         key={`${route.name}-${route.query ?? ''}`}
         initialQuery={route.query ?? ''}
-        userId={userId}
+        user={currentUser}
         onNavigate={navigate}
         onSearch={handleSearch}
-        onUserChange={handleUserChange}
+        accounts={accounts}
+        onLogin={handleLogin}
+        onLogout={handleLogout}
       />
       <div className="app-layout">
         <main className="main-content">{page}</main>
@@ -146,11 +153,12 @@ function App() {
   )
 }
 
-function readCurrentUserId() {
+function readCurrentUser() {
   try {
-    return localStorage.getItem('currentUserId') || '1337'
+    const raw = localStorage.getItem('currentUser')
+    return raw ? JSON.parse(raw) : null
   } catch {
-    return '1337'
+    return null
   }
 }
 
